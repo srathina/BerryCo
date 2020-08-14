@@ -15,17 +15,17 @@ int main ()
 
   char gps;
   int count;
-  char nmea_frame[100];
+  char nmea_frame[200];
   int token_cnt;
 
   /*
   ** Gps info strings
   */
-  char lat[30];
-  char lng[30];
-  char Validity[5];
-  char ns[5];
-  char ew[5];
+  char lat[50];
+  char lng[50];
+  char Validity[10];
+  char ns[10];
+  char ew[10];
 
   system("sudo chmod 777 /dev/ttyS0");
 
@@ -56,13 +56,12 @@ int main ()
         count = 0;
         gps = serialGetchar(serial_port);
         nmea_frame[count] = gps;
-        // putchar(gps);
 
         while (gps != '$')
         {
             gps = serialGetchar(serial_port);
             nmea_frame[++count] = gps;
-            fflush (stdout);
+
          }
 
         nmea_frame[count] = '\0';
@@ -81,6 +80,7 @@ int main ()
             // loop through the string to extract all other tokens
             while( token != NULL )
             {
+
                 /*
                 ** Extract and print gps info...
                 */
@@ -111,12 +111,12 @@ int main ()
                 }
                 token_cnt++;
 
-                // printf( " %s\n", token ); //printing each token
+                //printf( " %s\n", token ); //printing each token
                 token = strtok(NULL, ",");
             }
 
         }
-
+        fflush (stdout);
       }
 
   }
