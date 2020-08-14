@@ -20,7 +20,6 @@
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
-#include <wiringSerial.h>
 
 
 // #############################################
@@ -176,24 +175,6 @@ uint32_t  freq = 868100000; // in Mhz! (868.1)
 
 byte hello[32] = "HELLO";
 
-// gps variables
-
-int serial_port ;
-char gps;
-int count;
-char nmea_frame[200];
-int token_cnt;
-
-#define GPS_TX_DELAY    10
-  /*
-  ** Gps info strings
-  */
-  char lat[50];
-  char lng[50];
-  char Validity[10];
-  char ns[10];
-  char ew[10];
-
 void die(const char *s)
 {
     perror(s);
@@ -246,105 +227,10 @@ static void opmodeLora() {
     writeReg(REG_OPMODE, u);
 }
 
-void SetupUart()
-{
-
-  system("sudo chmod 777 /dev/ttyS0");
-
-  if ((serial_port = serialOpen ("/dev/ttyS0", 9600)) < 0)  /* open serial port */
-  {
-    fprintf (stderr, "Unable to open serial device: %s\n", strerror (errno)) ;
-    exit(1) ;
-  }
-
-  if (wiringPiSetup () == -1)                   /* initializes wiringPi setup */
-  {
-    fprintf (stdout, "Unable to start wiringPi: %s\n", strerror (errno)) ;
-    exit(1);
-  }
-
-}
-
-void Gps_receive()
-{
-      gps = serialGetchar(serial_port);
-
-      /*
-      ** capture nmea frame which is between '$'
-      */
-      if (gps == '$')
-      {
-        count = 0;
-        gps = serialGetchar(serial_port);
-        nmea_frame[count] = gps;
-
-        while (gps != '$')
-        {
-            gps = serialGetchar(serial_port);
-            nmea_frame[++count] = gps;
-
-         }
-
-        nmea_frame[count] = '\0';
-        // printf("%s", nmea_frame);
-
-        /*
-        ** separate the GPGLL frame
-        */
-        char * token = strtok(nmea_frame, ",");
-
-        if ( strcmp(token,"GPGLL") == 0)
-        {
-            token_cnt = 0;
-
-            //printf("\n");
-            // loop through the string to extract all other tokens
-            while( token != NULL )
-            {
-
-                /*
-                ** Extract and print gps info...
-                */
-                if(token_cnt == 1)
-                {
-                    strcpy(lat,token);
-                    // printf("Latitude: %s\n",lat);
-                }
-                else if(token_cnt == 3)
-                {
-                    strcpy(lng,token);
-                    // printf("Longitude: %s\n",lng);
-                }
-                else if(token_cnt == 6)
-                {
-                    strcpy(Validity,token);
-                    // printf("Validity: %s\n",Validity);
-                }
-                else if(token_cnt == 2)
-                {
-                    strcpy(ns,token);
-                    // printf("N/S: %s\n",ns);
-                }
-                else if(token_cnt == 4)
-                {
-                    strcpy(ew,token);
-                    // printf("E/W: %s\n",ew);
-                }
-                token_cnt++;
-
-                //printf( " %s\n", token ); //printing each token
-                token = strtok(NULL, ",");
-            }
-
-        }
-        fflush (stdout);
-      }
-}
-
 
 void SetupLoRa()
 {
-
+    
     digitalWrite(RST, HIGH);
     delay(100);
     digitalWrite(RST, LOW);
@@ -463,7 +349,7 @@ void receivepacket() {
                 // Divide by 4
                 SNR = ( value & 0xFF ) >> 2;
             }
-
+            
             if (sx1272) {
                 rssicorr = 139;
             } else {
@@ -506,15 +392,15 @@ static void configPower (int8_t pw) {
 }
 
 
-static void writeBuf(byte addr, byte *value, byte len) {
-    unsigned char spibuf[256];
-    spibuf[0] = addr | 0x80;
-    for (int i = 0; i < len; i++) {
-        spibuf[i + 1] = value[i];
-    }
-    selectreceiver();
-    wiringPiSPIDataRW(CHANNEL, spibuf, len + 1);
-    unselectreceiver();
+static void writeBuf(byte addr, byte *value, byte len) {                                                       
+    unsigned char spibuf[256];                                                                          
+    spibuf[0] = addr | 0x80;                                                                            
+    for (int i = 0; i < len; i++) {                                                                         
+        spibuf[i + 1] = value[i];                                                                       
+    }                                                                                                   
+    selectreceiver();                                                                                   
+    wiringPiSPIDataRW(CHANNEL, spibuf, len + 1);                                                        
+    unselectreceiver();                                                                                 
 }
 
 void txlora(byte *frame, byte datalen) {
@@ -541,7 +427,6 @@ void txlora(byte *frame, byte datalen) {
 
 int main (int argc, char *argv[]) {
 
-
     if (argc < 2) {
         printf ("Usage: argv[0] sender|rec [message]\n");
         exit(1);
@@ -554,7 +439,6 @@ int main (int argc, char *argv[]) {
 
     wiringPiSPISetup(CHANNEL, 500000);
 
-    SetupUart();
     SetupLoRa();
 
     if (!strcmp("sender", argv[1])) {
@@ -573,18 +457,8 @@ int main (int argc, char *argv[]) {
             strncpy((char *)hello, argv[2], sizeof(hello));
 
         while(1) {
-            Gps_receive();
-
-            txlora((byte *)lat, (byte)strlen(lat));
-            delay(GPS_TX_DELAY);
-            txlora((byte *)lng, (byte)strlen(lng));
-            delay(GPS_TX_DELAY);
-            txlora((byte *)Validity, (byte)strlen(Validity));
-            delay(GPS_TX_DELAY);
-            txlora((byte *)ns, (byte)strlen(ns));
-            delay(GPS_TX_DELAY);
-            txlora((byte *)ew, (byte)strlen(ew));
-            delay(GPS_TX_DELAY);
+            txlora(hello, strlen((char *)hello));
+            delay(5000);
         }
     } else {
 
@@ -595,7 +469,7 @@ int main (int argc, char *argv[]) {
         printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
         printf("------------------\n");
         while(1) {
-            receivepacket();
+            receivepacket(); 
             delay(1);
         }
 
