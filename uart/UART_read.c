@@ -7,8 +7,6 @@
 #include <wiringPi.h>
 #include <wiringSerial.h>
 
-#define TIMEDELAY 100
-
 unsigned int get_temp_string(const unsigned char* , unsigned char* , unsigned int , char );
 
 int main ()

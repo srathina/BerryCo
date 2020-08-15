@@ -176,23 +176,38 @@ uint32_t  freq = 868100000; // in Mhz! (868.1)
 
 byte hello[32] = "HELLO";
 
-// gps variables
+/***************************GPS***************************/
+unsigned int get_temp_string(const unsigned char* , unsigned char* , unsigned int , char );
 
 int serial_port ;
-char gps;
-int count;
-char nmea_frame[200];
-int token_cnt;
+unsigned char gps;
+unsigned int count;
+unsigned char nmea_frame[100];
+unsigned int comma_start;
+unsigned char gps_header[15];
+unsigned char lat[15];
+unsigned char ns[5];
+unsigned char lng[15];
+unsigned char ew[5];
+unsigned char utctime[15];
+unsigned char datavalid[5];
+unsigned char positionmode[5];
+/*********************************************************/
+unsigned int get_temp_string(const unsigned char* src_str, unsigned char* dest_str, unsigned int start, char delimit)
+{
 
-#define GPS_TX_DELAY    10
-  /*
-  ** Gps info strings
-  */
-  char lat[50];
-  char lng[50];
-  char Validity[10];
-  char ns[10];
-  char ew[10];
+        unsigned int j = 0;
+
+        while (src_str[start] != delimit)
+        {
+            dest_str[j] = src_str[start];
+            start++;
+            j++;
+        }
+        dest_str[j] = '\0';
+        return(start);
+
+}
 
 void die(const char *s)
 {
@@ -265,80 +280,51 @@ void SetupUart()
 
 }
 
-void Gps_receive()
+void gps_receive()
 {
-      gps = serialGetchar(serial_port);
 
+      gps = serialGetchar(serial_port);
       /*
-      ** capture nmea frame which is between '$'
+      ** capture nmea frame which is between '$' and <CR><LF>
       */
       if (gps == '$')
       {
         count = 0;
-        gps = serialGetchar(serial_port);
-        nmea_frame[count] = gps;
-
-        while (gps != '$')
+        while (gps != '*') // <End character of data field>
         {
             gps = serialGetchar(serial_port);
-            nmea_frame[++count] = gps;
-
+            nmea_frame[count++] = gps;
          }
 
         nmea_frame[count] = '\0';
-        // printf("%s", nmea_frame);
 
         /*
-        ** separate the GPGLL frame
+        ** extract gps frame GPGLL
         */
-        char * token = strtok(nmea_frame, ",");
-
-        if ( strcmp(token,"GPGLL") == 0)
+        comma_start = get_temp_string(nmea_frame, gps_header, 0,',');
+        if (strcmp((char *)gps_header,"GPGLL") == 0)
         {
-            token_cnt = 0;
-
-            //printf("\n");
-            // loop through the string to extract all other tokens
-            while( token != NULL )
-            {
-
-                /*
-                ** Extract and print gps info...
-                */
-                if(token_cnt == 1)
-                {
-                    strcpy(lat,token);
-                    // printf("Latitude: %s\n",lat);
-                }
-                else if(token_cnt == 3)
-                {
-                    strcpy(lng,token);
-                    // printf("Longitude: %s\n",lng);
-                }
-                else if(token_cnt == 6)
-                {
-                    strcpy(Validity,token);
-                    // printf("Validity: %s\n",Validity);
-                }
-                else if(token_cnt == 2)
-                {
-                    strcpy(ns,token);
-                    // printf("N/S: %s\n",ns);
-                }
-                else if(token_cnt == 4)
-                {
-                    strcpy(ew,token);
-                    // printf("E/W: %s\n",ew);
-                }
-                token_cnt++;
-
-                //printf( " %s\n", token ); //printing each token
-                token = strtok(NULL, ",");
-            }
-
+          comma_start = 5;
+          comma_start = get_temp_string(nmea_frame, lat, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, ns, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, lng, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, ew, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, utctime, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, datavalid, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, positionmode, comma_start+1,'*');
+          // printf("Header:%s ",gps_header);
+          // printf("Latitude:%s ",lat);
+          // printf("N/S:%s ",ns);
+          // printf("Longitude:%s ",lng);
+          // printf("E/S:%s ",ew);
+          // printf("UTC TIME:%s ",utctime);
+          // printf("DATA VALID:%s ",datavalid);
+          // printf("POSITION FIX:%s ",positionmode);
+          // printf("\n");
         }
-        fflush (stdout);
+
       }
+
 }
 
 
@@ -541,6 +527,8 @@ void txlora(byte *frame, byte datalen) {
 
 int main (int argc, char *argv[]) {
 
+    struct timeval nowtime;
+    uint32_t lasttime = 0;
 
     if (argc < 2) {
         printf ("Usage: argv[0] sender|rec [message]\n");
@@ -572,19 +560,19 @@ int main (int argc, char *argv[]) {
         if (argc > 2)
             strncpy((char *)hello, argv[2], sizeof(hello));
 
-        while(1) {
-            Gps_receive();
+        while(1)
+        {
+            gps_receive();
 
-            txlora((byte *)lat, (byte)strlen(lat));
-            delay(GPS_TX_DELAY);
-            txlora((byte *)lng, (byte)strlen(lng));
-            delay(GPS_TX_DELAY);
-            txlora((byte *)Validity, (byte)strlen(Validity));
-            delay(GPS_TX_DELAY);
-            txlora((byte *)ns, (byte)strlen(ns));
-            delay(GPS_TX_DELAY);
-            txlora((byte *)ew, (byte)strlen(ew));
-            delay(GPS_TX_DELAY);
+            gettimeofday(&nowtime, NULL);
+            uint32_t nowseconds = (uint32_t)(nowtime.tv_sec);
+            if (nowseconds - lasttime >= 3)
+            {
+                lasttime = nowseconds;
+                txlora(utctime, strlen((char *)utctime));
+            }
+
+
         }
     } else {
 

@@ -142,7 +142,7 @@ int Led1  = 0xff;
 int NetworkLED    = 22;
 int InternetLED   = 23;
 int ActivityLED_0 = 21;
-int ActivityLED_1 = 29; 
+int ActivityLED_1 = 29;
 
 // Set location in global_conf.json
 float lat =  0.0;
@@ -259,7 +259,7 @@ void SelectReceiver(byte CE)
    } else {
      digitalWrite(ssPin_2, LOW);
    }
-}  
+}
 
 void UnselectReceiver(byte CE)
 {
@@ -268,7 +268,7 @@ void UnselectReceiver(byte CE)
       digitalWrite(ssPin, HIGH);
     } else {
       digitalWrite(ssPin_2, HIGH);
-    }   
+    }
 }
 
 uint8_t ReadRegister(uint8_t addr, byte CE)
@@ -287,13 +287,13 @@ uint8_t ReadRegister(uint8_t addr, byte CE)
 void WriteRegister(uint8_t addr, uint8_t value, byte CE)
 {
     uint8_t spibuf[2];
-                           
+
     SelectReceiver(CE);
     spibuf[0] = addr | 0x80;
     spibuf[1] = value;
     wiringPiSPIDataRW(CE, spibuf, 2);
 
-    UnselectReceiver(CE);    
+    UnselectReceiver(CE);
 }
 
 bool ReceivePkt(char* payload, uint8_t* p_length, byte CE)
@@ -352,8 +352,8 @@ void SetupLoRa(byte CE)
     printf("Reset=%s ", PinName(RST  , buff));
     printf("Led1=%s\n", PinName(Led1 , buff));
   }
-  
-  // check basic 
+
+  // check basic
   if (ssPin == 0xff || dio0 == 0xff) {
     Die("Bad pin configuration ssPin and dio0 need at least to be defined");
   }
@@ -392,7 +392,7 @@ void SetupLoRa(byte CE)
     frf = ((uint64_t)freq << 19) / 32000000;
   } else {
     frf = ((uint64_t)freq_2 << 19) / 32000000;
-  }   
+  }
   WriteRegister(REG_FRF_MSB, (uint8_t)(frf >> 16), CE );
   WriteRegister(REG_FRF_MID, (uint8_t)(frf >> 8), CE );
   WriteRegister(REG_FRF_LSB, (uint8_t)(frf >> 0), CE );
@@ -568,7 +568,7 @@ bool Receivepacket(byte CE)
         dio_port = dio0;
     } else {
         dio_port = dio0_2;
-    }  
+    }
 
   if (digitalRead(dio_port) == 1) {
     char message[256];
@@ -584,7 +584,7 @@ bool Receivepacket(byte CE)
               digitalWrite(ActivityLED_0, HIGH);
             } else {
               digitalWrite(ActivityLED_1, HIGH);
-           }  
+           }
 
       if (value & 0x80) { // The SNR sign bit is 1
         // Invert and divide by 4
@@ -621,12 +621,12 @@ bool Receivepacket(byte CE)
       /* process some of the configuration variables */
       //net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (lgwm>>32)));
       //net_mac_l = htonl((uint32_t)(0xFFFFFFFF &  lgwm  ));
-      //*(uint32_t *)(buff_up + 4) = net_mac_h; 
+      //*(uint32_t *)(buff_up + 4) = net_mac_h;
       //*(uint32_t *)(buff_up + 8) = net_mac_l;
 
       buff_up[4] = (uint8_t)ifr.ifr_hwaddr.sa_data[0];
       buff_up[5] = (uint8_t)ifr.ifr_hwaddr.sa_data[1];
-      buff_up[6] = (uint8_t)ifr.ifr_hwaddr.sa_data[2]; 
+      buff_up[6] = (uint8_t)ifr.ifr_hwaddr.sa_data[2];
       buff_up[7] = 0xFF;
       buff_up[8] = 0xFF;
       buff_up[9] = (uint8_t)ifr.ifr_hwaddr.sa_data[3];
@@ -708,7 +708,7 @@ bool Receivepacket(byte CE)
 int main()
 {
   struct timeval nowtime;
-  uint32_t lasttime;
+  uint32_t lasttime = 0;
   unsigned int led0_timer,led1_timer;
 
   LoadConfiguration("global_conf.json");
@@ -734,7 +734,7 @@ int main()
   digitalWrite(RST, HIGH);
   delay(100);
   digitalWrite(RST, LOW);
-  delay(100);   
+  delay(100);
   SetupLoRa(0);
   SetupLoRa(1);
 
@@ -888,7 +888,7 @@ void LoadConfiguration(string configurationFile)
           } else if (memberType.compare("ref_longitude") == 0) {
             lon = confIt->value.GetDouble();
           } else if (memberType.compare("ref_altitude") == 0) {
-            alt = confIt->value.GetUint(); 
+            alt = confIt->value.GetUint();
 
           } else if (memberType.compare("name") == 0 && confIt->value.IsString()) {
             string str = confIt->value.GetString();
