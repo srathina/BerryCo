@@ -17,15 +17,15 @@
   },
   "gateway_conf":
   {
-    "ref_latitude": 0.0,
-    "ref_longitude": 0.0,
-    "ref_altitude": 10,
+    "ref_latitude": 57.72480392456055,
+    "ref_longitude": 11.901792526245117,
+    "ref_altitude": 49,
 
     "name": "your name",
     "email": "a@b.c",
     "desc": "Dual channel pkt forwarder",
 
-    "interface": "eth0",
+    "interface": "wlan0",
 
     "servers":
     [
