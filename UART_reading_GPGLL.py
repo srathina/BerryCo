@@ -69,8 +69,6 @@ while 1:
             
             dist_lat = dist_calc_lat(lat_dms_prev[0],lat_dms[0],lat_dms_prev[1],lat_dms[1],lat_dms_prev[2],lat_dms[2])
             dist_long = dist_calc_lat(long_dms_prev[0],long_dms[0],long_dms_prev[1],long_dms[1],long_dms_prev[2],long_dms[2])
-            #dist_lat = ((abs(lat_dms_prev[0]-lat_dms[0])*110947.2)+(abs(lat_dms_prev[1]-lat_dms[1])*1849.526)+(abs(lat_dms_prev[2]-lat_dms[2])*30.7848))
-            #dist_long = ((abs(long_dms_prev[0]-long_dms[0])*87843.36)+(abs(long_dms_prev[1]-long_dms[1])*1463.04)+(abs(long_dms_prev[0]-long_dms[0])*24.384))
             if not count==0:
                 if dist_lat!=0.0 or dist_long != 0.0:
                     print('Latitudinal distance moved in m:',round(dist_lat,2))
