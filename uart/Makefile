@@ -7,11 +7,11 @@ LIBS=-lwiringPi
 
 all: dragino_gps_app
 
-dragino_gps_app: UART_read.o
-	$(CC) UART_read.o  $(LIBS) -o dragino_gps_app
+dragino_gps_app: gps_read.o
+	$(CC) gps_read.o  -o dragino_gps_app -lm -lgps
 
-UART_read.o: UART_read.c
-	$(CC) $(CFLAGS) UART_read.c
+gps_read.o: gps_read.c
+	$(CC) $(CFLAGS) gps_read.c
 
 clean:
 	rm *.o dragino_gps_app
