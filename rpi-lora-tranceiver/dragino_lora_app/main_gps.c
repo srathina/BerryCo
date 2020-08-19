@@ -20,6 +20,7 @@
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
+#include <wiringSerial.h>
 
 
 // #############################################
@@ -175,6 +176,39 @@ uint32_t  freq = 868100000; // in Mhz! (868.1)
 
 byte hello[32] = "HELLO";
 
+/***************************GPS***************************/
+unsigned int get_temp_string(const unsigned char* , unsigned char* , unsigned int , char );
+
+int serial_port ;
+unsigned char gps;
+unsigned int count;
+unsigned char nmea_frame[100];
+unsigned int comma_start;
+unsigned char gps_header[15];
+unsigned char lat[15];
+unsigned char ns[5];
+unsigned char lng[15];
+unsigned char ew[5];
+unsigned char utctime[15];
+unsigned char datavalid[5];
+unsigned char positionmode[5];
+/*********************************************************/
+unsigned int get_temp_string(const unsigned char* src_str, unsigned char* dest_str, unsigned int start, char delimit)
+{
+
+        unsigned int j = 0;
+
+        while (src_str[start] != delimit)
+        {
+            dest_str[j] = src_str[start];
+            start++;
+            j++;
+        }
+        dest_str[j] = '\0';
+        return(start);
+
+}
+
 void die(const char *s)
 {
     perror(s);
@@ -227,10 +261,76 @@ static void opmodeLora() {
     writeReg(REG_OPMODE, u);
 }
 
+void SetupUart()
+{
+
+  system("sudo chmod 777 /dev/ttyS0");
+
+  if ((serial_port = serialOpen ("/dev/ttyS0", 9600)) < 0)  /* open serial port */
+  {
+    fprintf (stderr, "Unable to open serial device: %s\n", strerror (errno)) ;
+    exit(1) ;
+  }
+
+  if (wiringPiSetup () == -1)                   /* initializes wiringPi setup */
+  {
+    fprintf (stdout, "Unable to start wiringPi: %s\n", strerror (errno)) ;
+    exit(1);
+  }
+
+}
+
+void gps_receive()
+{
+
+      gps = serialGetchar(serial_port);
+      /*
+      ** capture nmea frame which is between '$' and <CR><LF>
+      */
+      if (gps == '$')
+      {
+        count = 0;
+        while (gps != '*') // <End character of data field>
+        {
+            gps = serialGetchar(serial_port);
+            nmea_frame[count++] = gps;
+         }
+
+        nmea_frame[count] = '\0';
+
+        /*
+        ** extract gps frame GPGLL
+        */
+        comma_start = get_temp_string(nmea_frame, gps_header, 0,',');
+        if (strcmp((char *)gps_header,"GPGLL") == 0)
+        {
+          comma_start = 5;
+          comma_start = get_temp_string(nmea_frame, lat, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, ns, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, lng, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, ew, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, utctime, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, datavalid, comma_start+1,',');
+          comma_start = get_temp_string(nmea_frame, positionmode, comma_start+1,'*');
+          // printf("Header:%s ",gps_header);
+          // printf("Latitude:%s ",lat);
+          // printf("N/S:%s ",ns);
+          // printf("Longitude:%s ",lng);
+          // printf("E/S:%s ",ew);
+          // printf("UTC TIME:%s ",utctime);
+          // printf("DATA VALID:%s ",datavalid);
+          // printf("POSITION FIX:%s ",positionmode);
+          // printf("\n");
+        }
+
+      }
+
+}
+
 
 void SetupLoRa()
 {
-    
+
     digitalWrite(RST, HIGH);
     delay(100);
     digitalWrite(RST, LOW);
@@ -349,7 +449,7 @@ void receivepacket() {
                 // Divide by 4
                 SNR = ( value & 0xFF ) >> 2;
             }
-            
+
             if (sx1272) {
                 rssicorr = 139;
             } else {
@@ -392,15 +492,15 @@ static void configPower (int8_t pw) {
 }
 
 
-static void writeBuf(byte addr, byte *value, byte len) {                                                       
-    unsigned char spibuf[256];                                                                          
-    spibuf[0] = addr | 0x80;                                                                            
-    for (int i = 0; i < len; i++) {                                                                         
-        spibuf[i + 1] = value[i];                                                                       
-    }                                                                                                   
-    selectreceiver();                                                                                   
-    wiringPiSPIDataRW(CHANNEL, spibuf, len + 1);                                                        
-    unselectreceiver();                                                                                 
+static void writeBuf(byte addr, byte *value, byte len) {
+    unsigned char spibuf[256];
+    spibuf[0] = addr | 0x80;
+    for (int i = 0; i < len; i++) {
+        spibuf[i + 1] = value[i];
+    }
+    selectreceiver();
+    wiringPiSPIDataRW(CHANNEL, spibuf, len + 1);
+    unselectreceiver();
 }
 
 void txlora(byte *frame, byte datalen) {
@@ -427,6 +527,9 @@ void txlora(byte *frame, byte datalen) {
 
 int main (int argc, char *argv[]) {
 
+    struct timeval nowtime;
+    uint32_t lasttime = 0;
+
     if (argc < 2) {
         printf ("Usage: argv[0] sender|rec [message]\n");
         exit(1);
@@ -439,6 +542,7 @@ int main (int argc, char *argv[]) {
 
     wiringPiSPISetup(CHANNEL, 500000);
 
+    SetupUart();
     SetupLoRa();
 
     if (!strcmp("sender", argv[1])) {
@@ -456,9 +560,19 @@ int main (int argc, char *argv[]) {
         if (argc > 2)
             strncpy((char *)hello, argv[2], sizeof(hello));
 
-        while(1) {
-            txlora(hello, strlen((char *)hello));
-            delay(5000);
+        while(1)
+        {
+            gps_receive();
+
+            gettimeofday(&nowtime, NULL);
+            uint32_t nowseconds = (uint32_t)(nowtime.tv_sec);
+            if (nowseconds - lasttime >= 3)
+            {
+                lasttime = nowseconds;
+                txlora(utctime, strlen((char *)utctime));
+            }
+
+
         }
     } else {
 
@@ -469,7 +583,7 @@ int main (int argc, char *argv[]) {
         printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
         printf("------------------\n");
         while(1) {
-            receivepacket(); 
+            receivepacket();
             delay(1);
         }
 
